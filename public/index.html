@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>보이스피싱 탐지</title>
+  <!-- 파비콘 파일이 없어도 브라우저가 404 오류를 내지 않도록 비워 둠 -->
+  <link rel="icon" href="data:,">
+  <style>
+    /* 어르신용: 큰 글씨, 고대비 */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      font-size: 1.75rem;
+      line-height: 1.4;
+      word-break: keep-all; /* 한국어 단어가 줄 끝에서 잘리지 않게 함 */
+    }
+
+    main {
+      max-width: 40rem;
+      margin: 0 auto;
+      padding: 1.5rem 1rem;
+    }
+
+    h1 {
+      margin: 0 0 1.5rem;
+      font-size: 2.25rem;
+      text-align: center;
+    }
+
+    label,
+    .group-title {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+    }
+
+    .group {
+      margin-bottom: 1.5rem;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      min-height: 4.5rem;
+      padding: 0.5rem 1rem;
+      border: 4px solid #fff;
+      border-radius: 0.75rem;
+      background: #000;
+      color: #fff;
+      font: inherit;
+      font-weight: bold;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: #ccc;
+      opacity: 1;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    button {
+      min-height: 5rem;
+      padding: 0.5rem;
+      border: 4px solid #fff;
+      border-radius: 0.75rem;
+      background: #000;
+      color: #fff;
+      font: inherit;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    input:focus-visible,
+    textarea:focus-visible,
+    button:focus-visible,
+    #msg-image:focus-visible + label {
+      outline: 4px solid #ffd600;
+      outline-offset: 3px;
+    }
+
+    /* 선택된 탭과 역할: 색과 체크 표시로 함께 구분 */
+    .mode-tab[aria-pressed="true"],
+    .role-button[aria-pressed="true"] {
+      border-color: #ffd600;
+      background: #ffd600;
+      color: #000;
+    }
+
+    .mode-tab[aria-pressed="true"]::before,
+    .role-button[aria-pressed="true"]::before {
+      content: "✓ ";
+    }
+
+    #mode-tabs {
+      margin-bottom: 1.5rem;
+    }
+
+    #start-button,
+    #msg-check {
+      border-color: #7dff9b;
+      background: #7dff9b;
+      color: #000;
+    }
+
+    #end-button {
+      border-color: #c40000;
+      background: #c40000;
+      color: #fff;
+    }
+
+    /* 누를 수 없는 버튼과 입력칸 */
+    #start-button:disabled,
+    #msg-check:disabled,
+    #end-button:disabled,
+    button:disabled,
+    input:disabled {
+      border: 4px dashed #999;
+      background: #000;
+      color: #bbb;
+      cursor: not-allowed;
+    }
+
+    #status-box {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      border: 4px solid #fff;
+      border-radius: 0.75rem;
+      text-align: center;
+    }
+
+    #status-box[data-state="waiting"] {
+      border-color: #ffd600;
+      color: #ffd600;
+    }
+
+    #status-box[data-state="connected"] {
+      border-color: #7dff9b;
+      color: #7dff9b;
+    }
+
+    #status-text {
+      display: block;
+      font-size: 2.5rem;
+      font-weight: bold;
+    }
+
+    #status-message {
+      display: block;
+    }
+
+    /* 위험도 표시: 색과 글자로 함께 구분 */
+    .risk-box {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      border: 4px solid #7dff9b;
+      border-radius: 0.75rem;
+      color: #7dff9b;
+      text-align: center;
+    }
+
+    .risk-box[data-level="caution"] {
+      border-color: #ffd600;
+      background: #ffd600;
+      color: #000;
+    }
+
+    .risk-box[data-level="danger"] {
+      border-color: #fff;
+      background: #c40000;
+      color: #fff;
+    }
+
+    .risk-box span {
+      display: block;
+    }
+
+    .risk-box .risk-level {
+      font-size: 3rem;
+      font-weight: bold;
+    }
+
+    .risk-box .risk-type {
+      font-weight: bold;
+    }
+
+    /* 문자 모드 */
+    #msg-input {
+      min-height: 12rem;
+      resize: vertical;
+    }
+
+    /* 기본 파일 선택 칸은 숨기고 큰 버튼 모양의 라벨을 보여 줌 */
+    #msg-image {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      min-height: 0;
+      padding: 0;
+      border: 0;
+      opacity: 0;
+    }
+
+    #msg-image-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 5rem;
+      margin: 0;
+      padding: 0.5rem;
+      border: 4px solid #fff;
+      border-radius: 0.75rem;
+      cursor: pointer;
+    }
+
+    #msg-preview {
+      margin-top: 0.75rem;
+    }
+
+    #msg-preview-image {
+      display: block;
+      max-width: 100%;
+      max-height: 20rem;
+      margin: 0 auto 0.75rem;
+      border: 4px solid #fff;
+    }
+
+    #msg-remove-image,
+    #msg-check {
+      width: 100%;
+    }
+
+    #msg-check {
+      margin-bottom: 1.5rem;
+    }
+
+    #msg-notice {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      border: 4px solid #ffd600;
+      border-radius: 0.75rem;
+      color: #ffd600;
+      font-weight: bold;
+    }
+
+    .msg-section {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      border: 4px solid #fff;
+      border-radius: 0.75rem;
+    }
+
+    .msg-section-title {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #ffd600;
+      font-weight: bold;
+    }
+
+    #msg-highlight-text {
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere; /* 긴 인터넷 주소가 화면 밖으로 나가지 않게 함 */
+    }
+
+    /* 의심 부분: 색과 밑줄로 함께 구분 */
+    mark {
+      padding: 0 0.15em;
+      background: #ffd600;
+      color: #000;
+      font-weight: bold;
+      text-decoration: underline;
+    }
+
+    #msg-advice {
+      margin: 0;
+      padding-left: 2.25rem;
+    }
+
+    #msg-advice li + li {
+      margin-top: 0.5rem;
+    }
+
+    /* 실시간 자막 */
+    #caption-box {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      border: 4px solid #fff;
+      border-radius: 0.75rem;
+    }
+
+    #caption-title {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #ffd600;
+      font-weight: bold;
+    }
+
+    #caption-text {
+      max-height: 14rem;
+      margin: 0;
+      overflow-y: auto;
+      font-size: 2rem;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>보이스피싱 탐지</h1>
+
+    <!-- 통화 모드 / 문자 모드 탭 -->
+    <div id="mode-tabs" class="button-row">
+      <button type="button" class="mode-tab" data-mode="call" aria-pressed="true">통화 모드</button>
+      <button type="button" class="mode-tab" data-mode="message" aria-pressed="false">문자 모드</button>
+    </div>
+
+    <div id="call-panel">
+      <!-- 연결 상태 표시 -->
+      <div id="status-box" data-state="idle" role="status">
+        <span id="status-text">시작 전</span>
+        <span id="status-message">방 코드와 역할을 고른 뒤 통화를 시작하세요.</span>
+      </div>
+
+      <!-- 보이스피싱 위험도 (어르신 화면에만 표시) -->
+      <section id="risk-box" class="risk-box" data-level="safe" aria-live="assertive" hidden>
+        <span id="risk-level" class="risk-level"></span>
+        <span id="risk-reason"></span>
+        <span id="risk-type" class="risk-type"></span>
+        <span id="risk-action" class="risk-type"></span>
+      </section>
+
+      <!-- 상대방 말을 글자로 보여 주는 자막 (어르신 화면에만 표시) -->
+      <section id="caption-box" hidden>
+        <span id="caption-title">실시간 자막</span>
+        <p id="caption-text" aria-live="polite"></p>
+      </section>
+
+      <div class="group">
+        <label for="room-input">방 코드</label>
+        <input id="room-input" type="text" maxlength="20" autocomplete="off" placeholder="예: 1234">
+      </div>
+
+      <div class="group">
+        <span class="group-title">역할 선택</span>
+        <div class="button-row">
+          <button type="button" class="role-button" data-role="어르신" aria-pressed="false">어르신</button>
+          <button type="button" class="role-button" data-role="상대방" aria-pressed="false">상대방</button>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button type="button" id="start-button">통화 시작</button>
+        <button type="button" id="end-button" disabled>통화 종료</button>
+      </div>
+
+      <!-- 상대방 목소리 재생 -->
+      <audio id="remote-audio" autoplay></audio>
+    </div>
+
+    <div id="message-panel" hidden>
+      <div class="group">
+        <label for="msg-input">문자 내용 붙여 넣기</label>
+        <textarea id="msg-input" maxlength="5000" placeholder="받은 문자를 여기에 붙여 넣으세요."></textarea>
+      </div>
+
+      <div class="group">
+        <span class="group-title">또는 문자 사진 올리기</span>
+        <input id="msg-image" type="file" accept="image/*">
+        <label id="msg-image-label" for="msg-image">사진 선택</label>
+        <div id="msg-preview" hidden>
+          <img id="msg-preview-image" alt="올린 문자 사진">
+          <button type="button" id="msg-remove-image">사진 지우기</button>
+        </div>
+      </div>
+
+      <button type="button" id="msg-check">위험한 문자인지 확인</button>
+
+      <div id="msg-notice" role="alert" hidden></div>
+
+      <!-- 판별 결과: 위험도, 유형, 의심 부분, 대응 방법 -->
+      <section id="msg-result" class="risk-box" data-level="safe" aria-live="assertive" hidden>
+        <span id="msg-level" class="risk-level"></span>
+        <span id="msg-reason"></span>
+        <span id="msg-type" class="risk-type"></span>
+        <span id="msg-limited"></span>
+      </section>
+
+      <section id="msg-highlight-box" class="msg-section" hidden>
+        <span id="msg-highlight-title" class="msg-section-title"></span>
+        <p id="msg-highlight-text"></p>
+      </section>
+
+      <section class="msg-section" hidden>
+        <span class="msg-section-title">이렇게 하세요</span>
+        <ul id="msg-advice"></ul>
+      </section>
+    </div>
+  </main>
+
+  <script src="call.js"></script>
+  <script src="message.js"></script>
+</body>
+</html>

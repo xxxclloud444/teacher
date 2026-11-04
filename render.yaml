@@ -1,0 +1,15 @@
+# Render 배포 설정. API 키는 여기에 쓰지 않고 Render 화면에서 직접 입력합니다.
+services:
+  - type: web
+    name: voice-phishing-guard
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
+      - key: GEMINI_DETECT_MODEL
+        value: gemini-3.1-flash-lite
